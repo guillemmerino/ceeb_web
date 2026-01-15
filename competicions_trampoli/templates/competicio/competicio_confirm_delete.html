@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Eliminar competició{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+  <div class="card-surface">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div>
+        <h2 class="mb-0">Eliminar competició</h2>
+        <div class="text-muted small">Confirma que vols eliminar la competició seleccionada. Aquesta acció és irreversible.</div>
+      </div>
+    </div>
+    <div class="p-4">
+      <div class="alert alert-danger mb-4">
+        <strong>Atenció:</strong> Estàs a punt d'eliminar la competició <strong>{{ object.nom }}</strong>.
+      </div>
+      <form method="post">
+        {% csrf_token %}
+        <div class="d-flex justify-content-end gap-2">
+          <a href="javascript:history.back()" class="btn btn-sm btn-outline-secondary">Cancel·la</a>
+          <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

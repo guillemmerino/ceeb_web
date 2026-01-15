@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Confirmació eliminació{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="card-surface">
+    <h2 class="mb-3">Confirmar eliminació</h2>
+    <p>Estàs segur que vols eliminar el registre de <strong>{{ object.nom_i_cognom|default:"-" }}</strong>?</p>
+    <form method="post">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger">Sí, eliminar</button>
+      <a href="{% url 'seguiment_list' %}" class="btn btn-secondary ms-2">Cancel·lar</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

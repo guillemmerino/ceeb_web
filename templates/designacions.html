@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Designacions{% endblock %}
+
+{% block content %}
+<section class="upload_section layout_padding">
+  <div class="container">
+    <h2>Processar designacions</h2>
+
+    <div id="status-message" class="alert" style="display: none;"></div>
+
+    <form id="designacions-form" action="{% url 'designacions' %}" method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="form-group mb-3">
+        <label for="files" class="form-label">Selecciona l'arxiu de disponibilitats i el de partits: (.xlsx)</label>
+        <input
+          type="file"
+          id="files"
+          name="files"
+          class="form-control"
+          multiple
+          accept=".xlsx"
+        >
+        <small class="form-text text-muted">
+          Pots triar diversos fitxers o una carpeta sencera (compatibilitat millor en Chrome/Edge).
+        </small>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Pujar i processar</button>
+    </form>
+
+    <div id="progress-section" style="display: none;">
+      <h3>Estat del procés</h3>
+      <p id="progress-status">Iniciant...</p>
+      <ul id="progress-logs"></ul>
+      <div id="download" class="mt-3"></div>
+    </div>
+  </div>
+</section>
+
+<script>
+  const MEDIA_URL = "{{ MEDIA_URL }}";
+  const form = document.getElementById('designacions-form');
+  const progressSection = document.getElementById('progress-section');
+  const statusMessage = document.getElementById('progress-status');
+  const logsList = document.getElementById('progress-logs');
+  const downloadDiv = document.getElementById('download');
+
+  let es = null; // EventSource
+  let lastProgress = 0;
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    const formData = new FormData(this);
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    fetch("{% url 'designacions' %}", {
+      method: 'POST',
+      headers: { 'X-CSRFToken': csrfToken },
+      body: formData,
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.task_id) {
+        form.style.display = 'none';
+        progressSection.style.display = 'block';
+        statusMessage.textContent = 'Iniciant...';
+        // 1) Obrir SSE per als logs en temps real
+        startLogStream(data.task_id);
+        // 2) Mantenir polling per saber quan acaba i obtenir el link final
+        checkTaskStatus(data.task_id);
+      } else {
+        alert('Error en iniciar el procés.');
+      }
+    })
+    .catch(console.error);
+  });
+
+  function startLogStream(taskId) {
+    // Tanca un SSE previ si n'hi ha
+    if (es) es.close();
+
+    es = new EventSource(`/logs/${taskId}/stream`);
+
+    es.onmessage = (e) => {
+      try {
+        const payload = JSON.parse(e.data); // {message, progress?}
+        if (payload.message) appendLog(payload.message);
+        if (typeof payload.progress === 'number') {
+          lastProgress = payload.progress;
+          statusMessage.textContent = `Progrés: ${payload.progress}%`;
+        }
+      } catch (err) {
+        // Si el backend envia línies no-JSON, mostra-les tal qual
+        appendLog(e.data);
+      }
+    };
+
+    es.onerror = () => {
+      // En cas de tall temporal, EventSource reintenta sol
+      // Si necessites tancar-lo: es.close();
+    };
+  }
+
+  function appendLog(text) {
+    const li = document.createElement('li');
+    li.textContent = text;
+    logsList.appendChild(li);
+    // autoscroll
+    logsList.parentElement.scrollTop = logsList.parentElement.scrollHeight;
+  }
+
+function checkTaskStatus(taskId) {
+    fetch(`/task-status/${taskId}/`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === 'SUCCESS') {
+          statusMessage.textContent = 'Procés completat!';
+          // hide spinner when done
+          const spinner = document.getElementById('loading-spinner');
+          if (spinner) spinner.style.display = 'none';
+          if (es) es.close();
+          // Prefer explicit result_url from the status response, otherwise
+          // construct the URL from MEDIA_URL + predictable filename.
+          let downloadHref = null;
+          if (data.result_url) downloadHref = data.result_url;
+          else if (data.result) downloadHref = data.result; // may be relative
+          else {
+            // fallback: predictable filename using task id
+            downloadHref = `${MEDIA_URL}designacions/${taskId}_result.xlsx`;
+          }
+          const a = document.createElement('a');
+          a.href = downloadHref;
+          a.textContent = 'Descarregar resultat';
+          a.className = 'btn btn-success';
+          downloadDiv.appendChild(a);
+        } else if (data.status === 'FAILURE') {
+          statusMessage.textContent = `Error: ${data.error || 'Error desconegut'}`;
+          // hide spinner on failure
+          const spinner = document.getElementById('loading-spinner');
+          if (spinner) spinner.style.display = 'none';
+          if (es) es.close();
+        } else {
+          statusMessage.textContent = lastProgress
+            ? `Progrés: ${lastProgress}%`
+            : `Estat: ${data.status}`;
+          // ensure spinner is visible while waiting
+          const spinner = document.getElementById('loading-spinner');
+          if (spinner) spinner.style.display = 'block';
+          setTimeout(() => checkTaskStatus(taskId), 2000);
+        }
+      })
+      .catch(error => {
+        appendLog(`Error consultant l'estat: ${error}`);
+        setTimeout(() => checkTaskStatus(taskId), 4000);
+      });
+  }
+</script>
+{% endblock %}

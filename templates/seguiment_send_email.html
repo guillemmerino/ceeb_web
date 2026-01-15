@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Enviar correu{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+  <div class="card-surface">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h2 class="mb-0">Enviar correu</h2>
+    </div>
+
+    <div class="mb-3">
+      <p class="mb-1">
+        <strong>Destinatari:</strong>
+        {{ alumne.nom_i_cognom }}
+      </p>
+      <p class="mb-0 text-muted">
+        {{ alumne.correu }}
+      </p>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+
+      <div class="row">
+
+        <div class="col-md-12 mb-3">
+          {{ form.subject.label_tag }}
+          {{ form.subject }}
+        </div>
+
+        <div class="col-md-12 mb-3">
+          {{ form.message.label_tag }}
+          {{ form.message }}
+        </div>
+        
+        <div class="col-md-12 mb-3">
+          {{ form.attachments.label_tag }}
+          {{ form.attachments }}
+        </div>
+
+
+      </div>
+
+      <div class="form-actions mt-3">
+        <button type="submit" class="btn btn-primary">
+          Enviar correu
+        </button>
+        <a href="{% url 'seguiment_list' %}" class="btn btn-secondary">
+          Cancel·lar
+        </a>
+      </div>
+
+    </form>
+  </div>
+
+</div>
+{% endblock %}

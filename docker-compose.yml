@@ -1,20 +1,45 @@
 services:
+
+  # ----------------------------------------------------------------------------------------------------------
+  # WEB
+  # ----------------------------------------------------------------------------------------------------------
   web:
     build:
       context: .
       dockerfile: Dockerfile
     volumes:
       - .:/app
+      - ../db_provisional:/data/media
     ports:
       - "8000:8000"
     environment:
       CALENDARITZACIONS_URL: "http://calendaritzacions:8000"  # host dins la xarxa de Compose
       CERTIFICATS_API: "http://certificats:8000/process-pdfs/"
+      CALENDARITZACIONS_API: "http://calendaritzacions:8000/process_async/"
+      CALENDARITZACIONS_API_SEGONA_FASE: "http://calendaritzacions:8000/process_async_segona_fase/"
+      DESIGNACIONS_API: "http://designacions:8000/process_designacions/"
+      LLISTATS_PROVISIONALS_API: "http://natacio:8000/provisionals/"
+      LLISTATS_DEFINITIUS_API: "http://natacio:8000/definitius/"
       CELERY_BROKER_URL: "redis://redis:6379/0"  # URL del backend de missatgeria
       RAG_URL: "http://rag:8000/chatbot/"
+      DESIGNACIONS_URL: "http://designacions:8000"
+      MEDIA_ROOT: /data/media
+      MEDIA_URL: /media/
+      # Database connection info for Django (must match the `db` service)
+      POSTGRES_USER: ceeb_user
+      POSTGRES_PASSWORD: ceeb_password
+      POSTGRES_DB: ceeb_db
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
     depends_on:
       - redis
+      - db
     command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+
+  # ----------------------------------------------------------------------------------------------------------
+  # CALENDARIS
+  # ----------------------------------------------------------------------------------------------------------
+
 
   calendaritzacions:
     build:
@@ -22,6 +47,10 @@ services:
       dockerfile: Dockerfile.dev
     volumes:
       - ../calendaritzacions:/app
+      - ../db_provisional:/data/media
+    environment:
+      MEDIA_ROOT: /data/media
+
     expose:
       - "8000"  # només per a la xarxa interna; si vols provar des del navegador, afegeix ports: ["8001:8000"]
     command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
@@ -31,12 +60,21 @@ services:
       timeout: 2s
       retries: 10
 
+
+  # ----------------------------------------------------------------------------------------------------------
+  # CERTIFICATS
+  # ----------------------------------------------------------------------------------------------------------
+
   certificats:
     build:
       context: ../formacio
       dockerfile: Dockerfile.dev
     volumes:
       - ../formacio:/app
+      - ../db_provisional:/data/media
+    environment:
+      MEDIA_ROOT: /data/media
+
     expose:
       - "8000"  # només per a la xarxa interna; si vols provar des del navegador, afegeix ports: ["8001:8000"]
     command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
@@ -45,6 +83,62 @@ services:
       interval: 5s
       timeout: 2s
       retries: 10
+
+
+  # ----------------------------------------------------------------------------------------------------------
+  # NATACIO
+  # ----------------------------------------------------------------------------------------------------------
+
+  natacio:
+    build: 
+      context: ../natacio
+      dockerfile: Dockerfile
+    container_name: natacio
+    
+    volumes:
+      - ../natacio:/app
+      - ../db_provisional:/data/media/
+
+    environment:
+      MEDIA_ROOT: /data/media/
+      MEDIA_URL: /media/
+    expose:
+      - "8000"
+    command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://natacio:8000/health"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+
+
+  # ----------------------------------------------------------------------------------------------------------
+  # DESIGNACIONS
+  # ----------------------------------------------------------------------------------------------------------
+
+  designacions:
+    build:
+      context: ../designacions
+      dockerfile: Dockerfile
+    volumes:
+      - ../designacions:/app
+      - ../db_provisional:/data/media
+    environment:
+      MEDIA_ROOT: /data/media
+
+    expose:
+      - "8000"  # només per a la xarxa interna; si vols provar des del navegador, afegeix ports: ["8001:8000"]
+    command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://designacions:8000/health"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+
+
+  # ----------------------------------------------------------------------------------------------------------
+  # OLLAMA I RAG
+  # ----------------------------------------------------------------------------------------------------------
 
   ollama:
     image: ollama/ollama:latest
@@ -84,6 +178,30 @@ services:
       timeout: 2s
       retries: 10
 
+
+  # ----------------------------------------------------------------------------------------------------------
+  # DATABASE
+  # ----------------------------------------------------------------------------------------------------------
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    container_name: db
+    environment:
+      POSTGRES_USER: ceeb_user
+      POSTGRES_PASSWORD: ceeb_password
+      POSTGRES_DB: ceeb_db
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    expose:
+      - "5432" # només per a la xarxa interna
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ceeb_user -d ceeb_db"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+
+
+
   # ----------------------------------------------------------------------------------------------------------
   # DEPURACIÓ, LOGS I TASQUES
   # ----------------------------------------------------------------------------------------------------------
@@ -109,8 +227,17 @@ services:
       - redis
     environment:
       CELERY_BROKER_URL: "redis://redis:6379/0"
+      MEDIA_ROOT: /data/media
+      MEDIA_URL: /media/
+      # DB env for tasks that run in workers
+      POSTGRES_USER: ceeb_user
+      POSTGRES_PASSWORD: ceeb_password
+      POSTGRES_DB: ceeb_db
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
     volumes:
       - .:/app
+      - ../db_provisional:/data/media
 
   # Worker per a tasques lleugeres (emails, neteges, etc.)
   worker-default:
@@ -122,8 +249,17 @@ services:
       - redis
     environment:
       CELERY_BROKER_URL: "redis://redis:6379/0"
+      MEDIA_ROOT: /data/media
+      MEDIA_URL: /media/
+      POSTGRES_USER: ceeb_user
+      POSTGRES_PASSWORD: ceeb_password
+      POSTGRES_DB: ceeb_db
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
     volumes:
       - .:/app
+      - ../db_provisional:/data/media
 
 volumes:
   ollama_models:  # Volum persistent per models Ollama
+  db_data:       # Volum persistent per la base de dades PostgreSQL

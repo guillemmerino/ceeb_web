@@ -7,41 +7,44 @@
   <div class="container">
     <h2>Processar certificats</h2>
 
-    <div id="status-message" class="alert" style="display: none;"></div>
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
 
-    <form id="certificats-form" action="{% url 'certificats' %}" method="post" enctype="multipart/form-data">
+    <form id="certificats-form" action="" method="post" enctype="multipart/form-data">
       {% csrf_token %}
-      <div class="form-group mb-3">
-        <label for="files" class="form-label">Selecciona un arxiu o una carpeta (PDF):</label>
-        <input
-          type="file"
-          id="files"
-          name="files"
-          class="form-control"
-          multiple
-          accept=".pdf,application/pdf"
-        >
-        <small class="form-text text-muted">
-          Pots triar diversos fitxers o una carpeta sencera (compatibilitat millor en Chrome/Edge).
-        </small>
+      {{ form.files.label_tag }}
+      <small class="form-text text-muted mb-2 d-block">
+        Pots triar diversos fitxers PDF o un ZIP (compatibilitat millor en Chrome/Edge).
+      </small>
+      <div class="mb-3">
+        {{ form.files }}
       </div>
-
-      <button type="submit" class="btn btn-primary">Pujar i processar</button>
+      <div class="mt-3">
+        <button type="submit" class="btn btn-primary">Pujar i processar</button>
+      </div>
     </form>
 
     <div id="progress-section" style="display: none;">
       <h3>Estat del procés</h3>
       <p id="progress-status">Iniciant...</p>
       <ul id="progress-logs"></ul>
+      <div id="download" class="mt-3"></div>
     </div>
+
+  
   </div>
 </section>
 
 <script>
+  const MEDIA_URL = "{{ MEDIA_URL }}";
   const form = document.getElementById('certificats-form');
   const progressSection = document.getElementById('progress-section');
   const statusMessage = document.getElementById('progress-status');
   const logsList = document.getElementById('progress-logs');
+  const downloadDiv = document.getElementById('download');
 
   let es = null; // EventSource
   let lastProgress = 0;
@@ -108,31 +111,43 @@
     logsList.parentElement.scrollTop = logsList.parentElement.scrollHeight;
   }
 
-  function checkTaskStatus(taskId) {
+function checkTaskStatus(taskId) {
     fetch(`/task-status/${taskId}/`)
       .then(response => response.json())
       .then(data => {
-        if (data.logs) {
-          // opcional: si vols, fusiona logs de Celery meta (fallback) amb els en viu
-          // Ara mateix els en viu via SSE ja s'estan mostrant.
-        }
-
         if (data.status === 'SUCCESS') {
           statusMessage.textContent = 'Procés completat!';
-          if (es) es.close(); // ja podem tancar SSE
-          const downloadLink = document.createElement('a');
-          downloadLink.href = data.result;
-          downloadLink.textContent = 'Descarregar fitxer';
-          downloadLink.className = 'btn btn-success';
-          logsList.appendChild(downloadLink);
+          // hide spinner when done
+          const spinner = document.getElementById('loading-spinner');
+          if (spinner) spinner.style.display = 'none';
+          if (es) es.close();
+          // Prefer explicit result_url from the status response, otherwise
+          // construct the URL from MEDIA_URL + predictable filename.
+          let downloadHref = null;
+          if (data.result_url) downloadHref = data.result_url;
+          else if (data.result) downloadHref = data.result; // may be relative
+          else {
+            // fallback: predictable filename using task id
+            downloadHref = `${MEDIA_URL}calendaritzacions/${taskId}_result.xlsx`;
+          }
+          const a = document.createElement('a');
+          a.href = downloadHref;
+          a.textContent = 'Descarregar resultat';
+          a.className = 'btn btn-success';
+          downloadDiv.appendChild(a);
         } else if (data.status === 'FAILURE') {
           statusMessage.textContent = `Error: ${data.error || 'Error desconegut'}`;
+          // hide spinner on failure
+          const spinner = document.getElementById('loading-spinner');
+          if (spinner) spinner.style.display = 'none';
           if (es) es.close();
         } else {
-          // Encara en marxa
           statusMessage.textContent = lastProgress
             ? `Progrés: ${lastProgress}%`
             : `Estat: ${data.status}`;
+          // ensure spinner is visible while waiting
+          const spinner = document.getElementById('loading-spinner');
+          if (spinner) spinner.style.display = 'block';
           setTimeout(() => checkTaskStatus(taskId), 2000);
         }
       })

@@ -1,12 +1,66 @@
+.card-surface .header-controls .d-flex > *:not(:first-child) {
+  margin-left: 0.5rem;
+}
 body {
   font-family: "Poppins", sans-serif;
   color: #0c0c0c;
   background-color: #ffffff;
 }
 
-.layout_padding {
-  padding: 75px 0;
+/* Background container (full-screen, behind everything) */
+.background-container {
+  position: fixed;
+  inset: 0; /* top:0; right:0; bottom:0; left:0 */
+  z-index: -1; /* Situa el fons darrere de tot el contingut */
+  background: url("../images/fondo.jpg") no-repeat center center/cover;
+  pointer-events: none; /* No intercepta clics */
+  opacity: 1;
+  animation: fadeIn 1s ease-in-out;
 }
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Ensure main and header are above the background */
+main, .footer_section {
+  position: relative;
+  z-index: 1;
+}
+
+/* Ensure hero/header sit above main content */
+.hero_area {
+  position: relative;
+  z-index: 2000;
+}
+.header_section {
+  position: sticky;
+  top: 0;
+  z-index: 3000; /* higher than hero_area so header controls dropdowns */
+}
+
+/* Section surface to separate from the fixed background */
+.layout_padding {
+  margin: 48px auto;
+  max-width: 1100px;       /* opcional: limita l'amplada i centre la secció */
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.85); /* light, slightly translucent surface */
+  padding: 36px 24px; /* inner spacing to separate content from edges */
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(18, 38, 63, 0.12);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.3);
+}
+
+@media (max-width: 576px) {
+  .layout_padding {
+    padding: 20px 12px;
+    border-radius: 8px;
+  }
+}
+
 
 .layout_padding2 {
   padding: 45px 0;
@@ -44,12 +98,6 @@ body {
 }
 
 /*header section*/
-.hero_area {
-  height: 15vh;
-  background: -webkit-gradient(linear, left top, right top, from(#3e4970), to(#203376));
-  background: linear-gradient(to right, #364477, #203376);
-}
-
 .hero_area::before {
   content: "";
   position: absolute;
@@ -284,6 +332,80 @@ a:focus {
 .slider_section .carousel_btn-container .carousel-control-prev:hover,
 .slider_section .carousel_btn-container .carousel-control-next:hover {
   background-color: #feb543;
+}
+
+/* Cards: make body fill available space and keep action button pinned to bottom */
+.card-container { display:flex; gap: 24px; flex-wrap:wrap; }
+.card {
+  display: flex;
+  flex-direction: column;
+  /* ensure cards have same height when inside a flex row */
+  min-width: 260px;
+  flex: 1 1 300px;
+}
+.card .card-img-top {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+}
+.card .card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+.card .card-body .btn {
+  margin-top: auto; /* push button to bottom */
+}
+
+/* Surface for stand-alone content (tables, forms, headings) to contrast with background */
+.card-surface {
+  background: rgba(255,255,255,0.94);
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(18,38,63,0.12);
+  border: 1px solid rgba(0,0,0,0.06);
+}
+.card-surface h2 {
+  margin: 0 0 12px 0;
+  font-weight: 700;
+}
+.card-surface .table-responsive {
+  margin-top: 8px;
+}
+
+@media (max-width: 576px) {
+  .card-surface { padding: 12px; }
+}
+
+/* Form surface adjustments for seguiment_form */
+.card-surface .row .col-md-6,
+.card-surface .row .col-md-4,
+.card-surface .row .col-md-3,
+.card-surface .row .col-md-2,
+.card-surface .row .col-md-12 {
+  display: block;
+}
+.card-surface label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+.card-surface input,
+.card-surface select,
+.card-surface textarea,
+.card-surface .form-control {
+  width: 100%;
+}
+.card-surface .form-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+/* Add a bit more spacing between the top header controls (search form and Add button) */
+.card-surface .header-controls > .btn,
+.card-surface .header-controls > a.btn {
+  margin-left: 0.5rem;
 }
 
 .slider_section .carousel_btn-container .carousel-control-prev {
@@ -784,15 +906,15 @@ a:focus {
 }
 
 .footer_section p {
-  color: #f9fcfb;
+  color: #000000;
   margin: 0;
   text-align: center;
   padding: 20px 15%;
-  border-top: 1px solid #f9fcfb;
+  border-top: 1px solid #000504;
 }
 
 .footer_section a {
-  color: #f9fcfb;
+  color: #000000;
 }
 
 /* end footer section*/
@@ -1045,3 +1167,4 @@ a:focus {
 #loading-spinner.hidden {
   display: none;
 }
+

@@ -12,6 +12,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'ceeb_web',  # La teva aplicació principal
     'django_celery_results',  # Resultats de Celery
+    'alumnat',
+    'competicions_trampoli',
      # Example apps
 ]
 
@@ -53,9 +55,13 @@ DEBUG = True
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / "db.sqlite3",
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("POSTGRES_DB"),
+        "USER": os.getenv("POSTGRES_USER"),
+        "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
+        "HOST": os.getenv("POSTGRES_HOST", "db"),
+        "PORT": os.getenv("POSTGRES_PORT", 5432),
     }
 }
 
@@ -69,8 +75,8 @@ USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_URL = os.getenv('MEDIA_URL', '/media/')
+MEDIA_ROOT = os.getenv('MEDIA_ROOT', '/data/media')
 
 
 STATIC_VERSION = "dev-1"
@@ -99,8 +105,11 @@ worker_prefetch_multiplier = 1
 task_acks_late = True  # si vols ack al final de la tasca
 
 # Límits de temps útils (ara sí funcionen perquè no uses 'solo')
-task_soft_time_limit = 60 * 25
-task_time_limit = 60 * 30
+# Allow longer-running tasks (e.g. calendar processing that can take 15-30 minutes)
+# Soft limit: worker will receive a SoftTimeLimitExceeded signal at this time
+# Hard limit: task will be force-terminated after this time
+task_soft_time_limit = 60 * 60  # 60 minutes
+task_time_limit = 60 * 65       # 65 minutes
 
 # Logs consola
 CELERYD_HIJACK_ROOT_LOGGER = False
@@ -127,3 +136,19 @@ LOGGING = {
 }
 
 RAG_URL = os.getenv("RAG_URL", "http://rag:8000/chatbot/")
+TIME_ZONE = "Europe/Madrid"
+USE_TZ = True
+
+
+#EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend" # PRODUCTION
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.office365.com")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_USE_TLS = True
+
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "gmerino@ceeb.cat")      # ex: no-reply@elteudomini.cat
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "Et5!2FD*WacG")
+
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
+

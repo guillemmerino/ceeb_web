@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Enviament massiu de certificats{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+
+  <div class="card-surface">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h2>Enviament massiu de certificats</h2>
+      <a href="{% url 'seguiment_list' %}" class="btn btn-sm btn-outline-secondary">
+        Tornar al llistat
+      </a>
+    </div>
+
+    {# Missatges (success/error) #}
+    {% if messages %}
+      <div class="mb-3">
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags }} mb-2" role="alert">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="alert alert-info">
+      <strong>Com funciona:</strong>
+      <ul class="mb-0">
+        <li>Puja tots els PDFs de certificats.</li>
+        <li>Per cada PDF, el sistema n’agafa el nom (ex: <code>Certificado_ALEX_SALVANY_CHORDA.pdf</code>) i busca l’alumne corresponent.</li>
+        <li>S’envia un email individual a cada alumne amb el seu PDF adjunt (mateix assumpte i missatge).</li>
+      </ul>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          {{ form.subject.label_tag }}
+          {{ form.subject }}
+          {% if form.subject.errors %}
+            <div class="text-danger small mt-1">{{ form.subject.errors }}</div>
+          {% endif %}
+        </div>
+
+        <div class="col-md-12 mb-3">
+          {{ form.message.label_tag }}
+          {{ form.message }}
+          {% if form.message.errors %}
+            <div class="text-danger small mt-1">{{ form.message.errors }}</div>
+          {% endif %}
+        </div>
+
+        <div class="col-md-12 mb-3">
+          {{ form.certificates.label_tag }}
+          {{ form.certificates }}
+          <div class="form-text">
+            Selecciona múltiples PDFs (Ctrl/Cmd + click). Només s’enviaran els que es puguin associar a un alumne.
+          </div>
+          {% if form.certificates.errors %}
+            <div class="text-danger small mt-1">{{ form.certificates.errors }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+          Enviar certificats
+        </button>
+        <a href="{% url 'seguiment_list' %}" class="btn btn-outline-secondary">
+          Cancel·lar
+        </a>
+      </div>
+
+    </form>
+
+    <hr class="my-4">
+
+    <div class="text-muted small">
+      <strong>Consell:</strong> si algun alumne no rep el correu, revisa que tingui el camp <em>Correu</em> informat i que el nom del PDF coincideixi amb el format esperat.
+    </div>
+
+  </div>
+</div>
+{% endblock %}

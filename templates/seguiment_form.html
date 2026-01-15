@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Alumne{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+  <div class="card-surface">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h2 class="mb-0">{% if object %}Editar alumne{% else %}Afegir alumne{% endif %}</h2>
+    </div>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      <div class="row">
+      <div class="col-md-6 mb-3">
+        {{ form.nom_i_cognom.label_tag }}
+        {{ form.nom_i_cognom }}
+      </div>
+
+      <div class="col-md-3 mb-3">
+        {{ form.cognom1.label_tag }}
+        {{ form.cognom1 }}
+      </div>
+
+      <div class="col-md-3 mb-3">
+        {{ form.cognom2.label_tag }}
+        {{ form.cognom2 }}
+      </div>
+
+      <div class="col-md-3 mb-3">
+        {{ form.nom.label_tag }}
+        {{ form.nom }}
+      </div>
+
+      <div class="col-md-3 mb-3">
+        {{ form.document.label_tag }}
+        {{ form.document }}
+      </div>
+
+      <div class="col-md-3 mb-3">
+        {{ form.sexe.label_tag }}
+        {{ form.sexe }}
+      </div>
+
+      <div class="col-md-3 mb-3">
+        {{ form.data_naixement.label_tag }}
+        {{ form.data_naixement }}
+      </div>
+
+      <div class="col-md-6 mb-3">
+        {{ form.correu.label_tag }}
+        {{ form.correu }}
+      </div>
+
+      <div class="col-md-2 mb-3">
+        {{ form.bc.label_tag }}
+        {{ form.bc }}
+      </div>
+
+      <div class="col-md-2 mb-3">
+        {{ form.cj.label_tag }}
+        {{ form.cj }}
+      </div>
+
+      <div class="col-md-2 mb-3">
+        {{ form.cg.label_tag }}
+        {{ form.cg }}
+      </div>
+
+      <div class="col-md-2 mb-3">
+        {{ form.pa.label_tag }}
+        {{ form.pa }}
+      </div>
+
+      <div class="col-md-2 mb-3">
+        {{ form.mdp.label_tag }}
+        {{ form.mdp }}
+      </div>
+
+      <div class="col-md-4 mb-3">
+        {{ form.ropec.label_tag }}
+        {{ form.ropec }}
+      </div>
+
+      <div class="col-md-4 mb-3">
+        {{ form.estat.label_tag }}
+        {{ form.estat }}
+      </div>
+
+      <div class="col-md-12 mb-3">
+        {{ form.notificacio.label_tag }}
+        {{ form.notificacio }}
+      </div>
+      </div>
+
+      <div class="form-actions mt-3">
+        <button type="submit" class="btn btn-primary">
+          Desar
+        </button>
+        <a href="{% url 'seguiment_list' %}" class="btn btn-secondary">
+          Cancel·lar
+        </a>
+      </div>
+
+    </form>
+  </div>
+
+</div>
+{% endblock %}

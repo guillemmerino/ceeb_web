@@ -1,9 +1,305 @@
 {% extends 'base.html' %}
 {% load static %}
-{% block title %}Home{% endblock %}
+{% block title %}Inici{% endblock %}
 
 {% block content %}
 
+<div class="container mt-4">
+  <div class="card-surface">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h2 class="mb-0">Calendari</h2>
+    </div>
+
+    <div id="calendar"></div>
+  </div>
+</div>
+
+<!-- Modal bootstrap (simple) -->
+<div class="modal fade" id="eventModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Nou esdeveniment</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Tancar">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label">Títol</label>
+        <input id="eventTitle" class="form-control" type="text" />
+
+        <div class="mt-3">
+          <label class="form-label">Inici</label>
+          <input id="eventStart" class="form-control" type="datetime-local" />
+        </div>
+
+        <div class="mt-3">
+          <label class="form-label">Fi (opcional)</label>
+          <input id="eventEnd" class="form-control" type="datetime-local" />
+        </div>
+
+        <div class="mt-3">
+          <label class="form-label">Descripció</label>
+          <textarea id="eventDescription" class="form-control" rows="2"></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="saveEventBtn" type="button" class="btn btn-primary">Desar</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel·lar</button>
+        <button id="deleteEventBtn" type="button" class="btn btn-danger">Eliminar</button>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FullCalendar (via CDN) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+
+<script>
+  let currentEventId = null;
+
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+  }
+
+  function toLocalDateTimeInputValue(dateObj) {
+    const pad = (n) => String(n).padStart(2, '0');
+    const y = dateObj.getFullYear();
+    const m = pad(dateObj.getMonth() + 1);
+    const d = pad(dateObj.getDate());
+    const hh = pad(dateObj.getHours());
+    const mm = pad(dateObj.getMinutes());
+    return `${y}-${m}-${d}T${hh}:${mm}`;
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    const calendarEl = document.getElementById('calendar');
+    const modalEl = document.getElementById('eventModal');
+    document.body.appendChild(modalEl);
+
+    const modal = new bootstrap.Modal(modalEl);
+    let clickTimer = null;
+    let lastClickTs = 0;
+    let lastClickDay = null;
+    let selectionInfo = null;
+
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+      initialView: 'dayGridMonth',
+      locale: 'ca',
+      selectable: true,
+
+      editable: true,
+      eventDurationEditable: true,
+      buttonText: {
+        today: 'Avui',
+        month: 'Mes',
+        week: 'Setmana',
+        day: 'Dia',
+
+      },
+      weekText: 'S',
+      firstDay: 1,
+      allDayText: 'Tot el dia',
+
+      headerToolbar: {
+        left: 'prev,next today',
+        center: 'title',
+        right: 'dayGridMonth,timeGridWeek,timeGridDay'
+      },
+
+      weekNumbers: true,
+      navLinks: true,
+
+      events: "{% url 'calendar_events_json' %}",
+
+      // ✅ Clic al dia (Month) -> navegar (no crea event)
+      //dateClick: function(info) {
+      //  if (calendar.view.type === 'dayGridMonth') {
+      //    calendar.changeView('timeGridDay', info.date);
+      //  }
+      //},
+
+      // ✅ Clic al número de setmana -> setmana
+      //weekNumberClick: function(info) {
+      //  calendar.changeView('timeGridWeek', info.date);
+      //},
+
+      // ➕ Crear event (drag o clic segons vista)
+      select: function(info) {
+        currentEventId = null;
+        selectionInfo = info;
+
+        document.getElementById("eventTitle").value = "";
+        document.getElementById("eventDescription").value = "";
+
+        let startDate = new Date(info.start);
+        let endDate = info.end ? new Date(info.end) : null;
+
+        if (calendar.view.type === "dayGridMonth" || info.allDay) {
+          startDate.setHours(9, 0, 0, 0);
+          endDate = new Date(startDate);
+          endDate.setMinutes(endDate.getMinutes() + 60);
+        }
+
+        document.getElementById("eventStart").value = toLocalDateTimeInputValue(startDate);
+        document.getElementById("eventEnd").value = endDate ? toLocalDateTimeInputValue(endDate) : "";
+
+        document.getElementById("deleteEventBtn").style.display = "none";
+
+        modal.show();
+      },
+
+      eventDrop: async function(info) {
+        // S’ha mogut a un altre dia/hora
+        const payload = {
+          title: info.event.title,
+          description: (info.event.extendedProps && info.event.extendedProps.description) ? info.event.extendedProps.description : "",
+          start: toLocalDateTimeInputValue(info.event.start),
+          end: info.event.end ? toLocalDateTimeInputValue(info.event.end) : null,
+        };
+
+        const res = await fetch(`/calendar/events/${info.event.id}/update/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCookie("csrftoken"),
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          info.revert(); // torna l’event al lloc original
+          const data = await res.json().catch(() => ({}));
+          alert(data.error || "No s'ha pogut moure l'esdeveniment");
+        }
+      },
+
+      eventResize: async function(info) {
+        // S’ha canviat la durada estirant l’event
+        const payload = {
+          title: info.event.title,
+          description: (info.event.extendedProps && info.event.extendedProps.description) ? info.event.extendedProps.description : "",
+          start: toLocalDateTimeInputValue(info.event.start),
+          end: info.event.end ? toLocalDateTimeInputValue(info.event.end) : null,
+        };
+
+        const res = await fetch(`/calendar/events/${info.event.id}/update/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCookie("csrftoken"),
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          info.revert();
+          const data = await res.json().catch(() => ({}));
+          alert(data.error || "No s'ha pogut canviar la durada");
+        }
+      },
 
 
+      // ✏️ Editar event existent
+      eventClick: function(info) {
+        currentEventId = info.event.id;
+
+        document.getElementById("eventTitle").value = info.event.title || "";
+        document.getElementById("eventDescription").value = info.event.extendedProps && info.event.extendedProps.description ? info.event.extendedProps.description : (info.event.description || "");
+        document.getElementById("eventStart").value = toLocalDateTimeInputValue(info.event.start);
+        document.getElementById("eventEnd").value = info.event.end
+          ? toLocalDateTimeInputValue(info.event.end)
+          : "";
+
+        document.getElementById("deleteEventBtn").style.display = "inline-block";
+
+        modal.show();
+      }
+    });
+
+    calendar.render();
+
+    // ✅ Doble clic REAL (month -> week, week -> day)
+    calendarEl.addEventListener("dblclick", function (ev) {
+      const dayCell =
+        ev.target.closest(".fc-daygrid-day") ||
+        ev.target.closest(".fc-timegrid-col");
+
+      if (!dayCell) return;
+
+      const dateStr = dayCell.getAttribute("data-date");
+      if (!dateStr) return;
+
+      if (calendar.view.type === "dayGridMonth") {
+        calendar.changeView("timeGridWeek", dateStr);
+      } else if (calendar.view.type === "timeGridWeek") {
+        calendar.changeView("timeGridDay", dateStr);
+      }
+    });
+
+    // 💾 DESAR (crear o editar)
+    document.getElementById("saveEventBtn").addEventListener("click", async () => {
+      const title = document.getElementById("eventTitle").value.trim();
+      if (!title) return;
+
+      const description = document.getElementById("eventDescription").value.trim();
+      const payload = {
+        title,
+        description,
+        start: document.getElementById("eventStart").value,
+        end: document.getElementById("eventEnd").value || null,
+      };
+
+      const url = currentEventId
+        ? `/calendar/events/${currentEventId}/update/`
+        : `{% url 'calendar_event_create' %}`;
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCookie("csrftoken"),
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        modal.hide();
+        calendar.refetchEvents();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Error en desar l'esdeveniment");
+      }
+    });
+
+    // 🗑️ ELIMINAR
+    document.getElementById("deleteEventBtn").addEventListener("click", async () => {
+      if (!currentEventId) return;
+      if (!confirm("Vols eliminar aquest esdeveniment?")) return;
+
+      const res = await fetch(`/calendar/events/${currentEventId}/delete/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCookie("csrftoken"),
+        },
+        body: JSON.stringify({}),
+      });
+
+      if (res.ok) {
+        modal.hide();
+        calendar.refetchEvents();
+      } else {
+        alert("No s'ha pogut eliminar l'esdeveniment.");
+      }
+    });
+  });
+</script>
 {% endblock %}
+
+

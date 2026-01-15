@@ -10036,3 +10036,7 @@ a.text-dark:hover, a.text-dark:focus {
   }
 }
 /*# sourceMappingURL=bootstrap.css.map */
+
+/* Força el modal per sobre de qualsevol capa del layout */
+.modal { z-index: 100000 !important; }
+.modal-backdrop { z-index: 99998 !important; }
